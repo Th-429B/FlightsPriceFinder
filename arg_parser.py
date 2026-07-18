@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument("--start", type=Airport, required=True)
     parser.add_argument("--end", type=Airport, required=True)
     parser.add_argument("--date", type=valid_date, required=True)
-    parser.add_argument("--debug", type=bool)
+    parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
 

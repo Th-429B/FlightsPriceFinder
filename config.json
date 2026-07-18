@@ -1,0 +1,12 @@
+{
+    "routes": [
+        {
+            "start": "SIN",
+            "end": "NRT",
+            "depart": "2026-11-01",
+            "return": "2026-11-09",
+            "flex_days": 2,
+            "max_stops": 0
+        }
+    ]
+}
