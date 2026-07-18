@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import traceback
 from datetime import datetime, timedelta
@@ -9,6 +10,15 @@ import notifier
 
 CONFIG_FILE = Path(__file__).parent / "config.json"
 DATE_FMT = "%Y-%m-%d"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
+# primp (fast_flights' HTTP client) logs every request URL at INFO
+logging.getLogger("primp").setLevel(logging.WARNING)
 
 
 def flex_dates(center: str, flex_days: int) -> list[str]:
@@ -28,23 +38,41 @@ def search_route(route: dict) -> str:
     depart_options = flex_dates(route["depart"], flex)
     return_options = flex_dates(route["return"], flex)
 
+    pairs = [
+        (d, r) for d in depart_options for r in return_options if d < r
+    ]
+    log.info(
+        "Route %s -> %s: searching %d depart/return combinations",
+        start, end, len(pairs),
+    )
+
     results = []
     failures = 0
-    for depart in depart_options:
-        for ret in return_options:
-            if depart >= ret:
-                continue
-            try:
-                cheapest = finder.find_round_trip(
-                    start, end, depart, ret, max_stops=route.get("max_stops", 0)
+    for i, (depart, ret) in enumerate(pairs, 1):
+        try:
+            cheapest = finder.find_round_trip(
+                start, end, depart, ret, max_stops=route.get("max_stops", 0)
+            )
+            if cheapest is None:
+                log.warning("[%d/%d] %s -> %s: no flights found", i, len(pairs), depart, ret)
+            else:
+                results.append((depart, ret, cheapest))
+                log.info(
+                    "[%d/%d] %s -> %s: %s (%s)",
+                    i, len(pairs), depart, ret,
+                    cheapest.price, cheapest.name or "airline unknown",
                 )
-                if cheapest is not None:
-                    results.append((depart, ret, cheapest))
-            except Exception:
-                failures += 1
-            time.sleep(1)
+        except Exception as e:
+            failures += 1
+            log.error("[%d/%d] %s -> %s: search failed: %s", i, len(pairs), depart, ret, e)
+        time.sleep(1)
 
     results.sort(key=lambda item: finder._price_value(item[2]))
+    log.info(
+        "Done: %d results, %d failures. Top result: %s",
+        len(results), failures,
+        f"{results[0][0]} -> {results[0][1]} at {results[0][2].price}" if results else "none",
+    )
 
     lines = [
         f"✈️ *{start} ⇄ {end}* round trips",
@@ -81,11 +109,13 @@ def main():
         try:
             message = search_route(route)
         except Exception:
+            log.exception("Route %s -> %s failed", route.get("start"), route.get("end"))
             message = (
                 f"⚠️ Flight search failed for {route.get('start')} → {route.get('end')}:\n"
                 f"```\n{traceback.format_exc(limit=3)}```"
             )
         notifier.send_telegram(message)
+        log.info("Telegram message sent")
 
 
 if __name__ == "__main__":
