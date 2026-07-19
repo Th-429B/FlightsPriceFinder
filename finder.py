@@ -15,11 +15,12 @@ def find_round_trip(start: str, end: str, depart_date: str, return_date: str, ma
     Returns the cheapest flight option (price is the round-trip total),
     or None if the search returned nothing.
     """
+    # Google intermittently (~1 in 5 fetches) serves a page variant where
+    # only prices are parseable, leaving name/timing blank. Retry a few
+    # times for a complete result; a degraded one is kept as last resort.
     best = None
-    for _ in range(2):
+    for _ in range(3):
         best = _search_round_trip(start, end, depart_date, return_date, max_stops)
-        # The scraper sometimes returns prices without airline/timing
-        # details; retry once to try to get a complete result.
         if best is not None and best.name:
             break
     return best

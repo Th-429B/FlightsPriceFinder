@@ -30,9 +30,35 @@ def flex_dates(center: str, flex_days: int) -> list[str]:
     ]
 
 
+def with_day(date_str: str) -> str:
+    """'2026-11-01' -> '2026-11-01 (Sun)'"""
+    day = datetime.strptime(date_str, DATE_FMT).strftime("%a")
+    return f"{date_str} ({day})"
+
+
+def outbound_summary(flight) -> str:
+    """One compact line for the outbound leg, e.g.
+    'ZIPAIR Tokyo · 12:40 AM → 8:30 AM +1 (6 hr 50 min, non-stop)'."""
+    name = flight.name or "Unknown airline"
+    if not (flight.departure and flight.arrival):
+        return name
+    # Google's times look like '11:30 PM on Thu, Dec 10' — keep just the time,
+    # the dates are already in the line above.
+    dep = flight.departure.split(" on ")[0]
+    arr = flight.arrival.split(" on ")[0]
+    ahead = f" {flight.arrival_time_ahead}" if flight.arrival_time_ahead else ""
+    if flight.stops == 0:
+        stops = "non-stop"
+    elif isinstance(flight.stops, int):
+        stops = f"{flight.stops} stop(s)"
+    else:
+        stops = "stops unknown"
+    return f"{name} · {dep} → {arr}{ahead} ({flight.duration}, {stops})"
+
+
 def search_route(route: dict) -> str:
     """Search every depart/return permutation in the flex window and
-    return a Telegram message with the top 3 cheapest combinations."""
+    return a Telegram message with the top 5 cheapest combinations."""
     start, end = route["start"], route["end"]
     flex = route.get("flex_days", 0)
     depart_options = flex_dates(route["depart"], flex)
@@ -76,25 +102,13 @@ def search_route(route: dict) -> str:
 
     lines = [
         f"✈️ *{start} ⇄ {end}* round trips",
-        f"Depart {depart_options[0]} … {depart_options[-1]}, "
-        f"return {return_options[0]} … {return_options[-1]}",
+        f"Depart {depart_options[0]}…{depart_options[-1]}, "
+        f"return {return_options[0]}…{return_options[-1]}",
         "",
     ]
-    for i, (depart, ret, flight) in enumerate(results[:3], 1):
-        name = flight.name or "Unknown airline"
-        lines.append(f"*{i}. {depart} → {ret}* — {flight.price}")
-        lines.append(f"    {name}")
-        if flight.departure and flight.arrival:
-            if flight.stops == 0:
-                stops = "non-stop"
-            elif isinstance(flight.stops, int):
-                stops = f"{flight.stops} stop(s)"
-            else:
-                stops = "stops unknown"
-            lines.append(
-                f"    Outbound: {flight.departure} → {flight.arrival}"
-                f" ({flight.duration}, {stops})"
-            )
+    for i, (depart, ret, flight) in enumerate(results[:5], 1):
+        lines.append(f"*{i}. {with_day(depart)} → {with_day(ret)}* — {flight.price}")
+        lines.append(f"    {outbound_summary(flight)}")
     if not results:
         lines.append("No flights found in the window.")
     if failures:

@@ -2,8 +2,9 @@ name: Daily flight price check
 
 on:
   schedule:
-    # 09:00 Singapore time (01:00 UTC) every day
-    - cron: "0 1 * * *"
+    # ~08:23 Singapore time (00:23 UTC) every day; off-peak minute to
+    # reduce GitHub's scheduling delay
+    - cron: "23 0 * * *"
   workflow_dispatch: {}
 
 jobs:
