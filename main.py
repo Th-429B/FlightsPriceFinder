@@ -38,7 +38,7 @@ def with_day(date_str: str) -> str:
 
 def outbound_summary(flight) -> str:
     """One compact line for the outbound leg, e.g.
-    'ZIPAIR Tokyo · 12:40 AM → 8:30 AM +1 (6 hr 50 min, non-stop)'."""
+    'ZIPAIR Tokyo · 12:40 AM → 8:30 AM +1'."""
     name = flight.name or "Unknown airline"
     if not (flight.departure and flight.arrival):
         return name
@@ -47,13 +47,7 @@ def outbound_summary(flight) -> str:
     dep = flight.departure.split(" on ")[0]
     arr = flight.arrival.split(" on ")[0]
     ahead = f" {flight.arrival_time_ahead}" if flight.arrival_time_ahead else ""
-    if flight.stops == 0:
-        stops = "non-stop"
-    elif isinstance(flight.stops, int):
-        stops = f"{flight.stops} stop(s)"
-    else:
-        stops = "stops unknown"
-    return f"{name} · {dep} → {arr}{ahead} ({flight.duration}, {stops})"
+    return f"{name} · {dep} → {arr}{ahead}"
 
 
 def search_route(route: dict) -> str:
