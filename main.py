@@ -36,9 +36,8 @@ def with_day(date_str: str) -> str:
     return f"{date_str} ({day})"
 
 
-def outbound_summary(flight) -> str:
-    """One compact line for the outbound leg, e.g.
-    'ZIPAIR Tokyo · 12:40 AM → 8:30 AM +1'."""
+def leg_summary(flight) -> str:
+    """One compact line for a leg, e.g. 'ZIPAIR Tokyo · 12:40 AM → 8:30 AM +1'."""
     name = flight.name or "Unknown airline"
     if not (flight.departure and flight.arrival):
         return name
@@ -50,6 +49,35 @@ def outbound_summary(flight) -> str:
     return f"{name} · {dep} → {arr}{ahead}"
 
 
+def currency_of(flight) -> str:
+    """'SGD 913' -> 'SGD'"""
+    head = flight.price.replace("\xa0", " ").split(" ")[0]
+    return head if not head[:1].isdigit() else ""
+
+
+def search_leg_dates(start: str, end: str, dates: list[str], max_stops: int):
+    """One-way search for each date; returns {date: cheapest_flight}."""
+    legs = {}
+    failures = 0
+    for i, date in enumerate(dates, 1):
+        try:
+            flight = finder.find_one_way(start, end, date, max_stops=max_stops)
+            if flight is None:
+                log.warning("[%d/%d] %s -> %s on %s: no flights", i, len(dates), start, end, date)
+            else:
+                legs[date] = flight
+                log.info(
+                    "[%d/%d] %s -> %s on %s: %s (%s)",
+                    i, len(dates), start, end, date,
+                    flight.price, flight.name or "airline unknown",
+                )
+        except Exception as e:
+            failures += 1
+            log.error("[%d/%d] %s -> %s on %s: failed: %s", i, len(dates), start, end, date, e)
+        time.sleep(1)
+    return legs, failures
+
+
 def search_route(route: dict) -> str:
     """Search every depart/return permutation in the flex window and
     return a Telegram message with the top 5 cheapest combinations."""
@@ -58,51 +86,42 @@ def search_route(route: dict) -> str:
     depart_options = flex_dates(route["depart"], flex)
     return_options = flex_dates(route["return"], flex)
 
-    pairs = [
-        (d, r) for d in depart_options for r in return_options if d < r
-    ]
+    max_stops = route.get("max_stops", 0)
     log.info(
-        "Route %s -> %s: searching %d depart/return combinations",
-        start, end, len(pairs),
+        "Route %s <-> %s: searching %d outbound + %d return one-way legs",
+        start, end, len(depart_options), len(return_options),
     )
+    out_legs, out_failures = search_leg_dates(start, end, depart_options, max_stops)
+    ret_legs, ret_failures = search_leg_dates(end, start, return_options, max_stops)
+    failures = out_failures + ret_failures
 
-    results = []
-    failures = 0
-    for i, (depart, ret) in enumerate(pairs, 1):
-        try:
-            cheapest = finder.find_round_trip(
-                start, end, depart, ret, max_stops=route.get("max_stops", 0)
-            )
-            if cheapest is None:
-                log.warning("[%d/%d] %s -> %s: no flights found", i, len(pairs), depart, ret)
-            else:
-                results.append((depart, ret, cheapest))
-                log.info(
-                    "[%d/%d] %s -> %s: %s (%s)",
-                    i, len(pairs), depart, ret,
-                    cheapest.price, cheapest.name or "airline unknown",
-                )
-        except Exception as e:
-            failures += 1
-            log.error("[%d/%d] %s -> %s: search failed: %s", i, len(pairs), depart, ret, e)
-        time.sleep(1)
-
-    results.sort(key=lambda item: finder._price_value(item[2]))
+    # Legs price independently, so every combination is just the sum.
+    results = [
+        (d, r, out_legs[d], ret_legs[r])
+        for d in out_legs
+        for r in ret_legs
+        if d < r
+    ]
+    results.sort(key=lambda x: finder._price_value(x[2]) + finder._price_value(x[3]))
     log.info(
-        "Done: %d results, %d failures. Top result: %s",
-        len(results), failures,
-        f"{results[0][0]} -> {results[0][1]} at {results[0][2].price}" if results else "none",
+        "Done: %d combinations from %d searches, %d failures",
+        len(results), len(out_legs) + len(ret_legs), failures,
     )
 
     lines = [
-        f"✈️ *{start} ⇄ {end}* round trips",
+        f"✈️ *{start} ⇄ {end}*",
         f"Depart {depart_options[0]}…{depart_options[-1]}, "
         f"return {return_options[0]}…{return_options[-1]}",
         "",
     ]
-    for i, (depart, ret, flight) in enumerate(results[:5], 1):
-        lines.append(f"*{i}. {with_day(depart)} → {with_day(ret)}* — {flight.price}")
-        lines.append(f"    {outbound_summary(flight)}")
+    for i, (depart, ret, out, back) in enumerate(results[:5], 1):
+        total = finder._price_value(out) + finder._price_value(back)
+        currency = currency_of(out) or currency_of(back)
+        lines.append(
+            f"*{i}. {with_day(depart)} → {with_day(ret)}* — {currency} {total:g}"
+        )
+        lines.append(f"    Out: {leg_summary(out)}")
+        lines.append(f"    Back: {leg_summary(back)}")
     if not results:
         lines.append("No flights found in the window.")
     if failures:

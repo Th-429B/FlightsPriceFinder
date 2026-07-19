@@ -9,6 +9,20 @@ def _price_value(flight) -> float:
     return float(match.group().replace(",", "")) if match else float("inf")
 
 
+def find_one_way(start: str, end: str, date: str, max_stops: int = 0):
+    """Cheapest one-way flight for a single date, or None.
+
+    Retries degraded scrapes (see find_round_trip).
+    """
+    best = None
+    for _ in range(3):
+        _, flights = find_flights(start, end, date, max_stops=max_stops, top_n=1)
+        best = flights[0] if flights else best
+        if best is not None and best.name:
+            break
+    return best
+
+
 def find_round_trip(start: str, end: str, depart_date: str, return_date: str, max_stops: int = 0):
     """Search round-trip flights for one specific depart/return date pair.
 
