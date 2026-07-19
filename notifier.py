@@ -20,8 +20,7 @@ def _load_dotenv():
         os.environ.setdefault(key.strip(), value.strip())
 
 
-def send_telegram(message: str):
-    """Send a Markdown-formatted message to the configured Telegram chat."""
+def _credentials():
     _load_dotenv()
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -30,7 +29,12 @@ def send_telegram(message: str):
             "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set "
             "(as environment variables or in a .env file)"
         )
+    return token, chat_id
 
+
+def send_telegram(message: str):
+    """Send a Markdown-formatted message to the configured Telegram chat."""
+    token, chat_id = _credentials()
     response = requests.post(
         f"https://api.telegram.org/bot{token}/sendMessage",
         json={
@@ -40,4 +44,17 @@ def send_telegram(message: str):
         },
         timeout=30,
     )
+    response.raise_for_status()
+
+
+def send_photo(photo_path: str, caption: str = ""):
+    """Send a photo to the configured Telegram chat."""
+    token, chat_id = _credentials()
+    with open(photo_path, "rb") as photo:
+        response = requests.post(
+            f"https://api.telegram.org/bot{token}/sendPhoto",
+            data={"chat_id": chat_id, "caption": caption},
+            files={"photo": photo},
+            timeout=60,
+        )
     response.raise_for_status()

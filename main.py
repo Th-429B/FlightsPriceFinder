@@ -2,10 +2,12 @@ import json
 import logging
 import time
 import traceback
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import chart
 import finder
+import history
 import notifier
 
 CONFIG_FILE = Path(__file__).parent / "config.json"
@@ -78,9 +80,11 @@ def search_leg_dates(start: str, end: str, dates: list[str], max_stops: int):
     return legs, failures
 
 
-def search_route(route: dict) -> str:
-    """Search every depart/return permutation in the flex window and
-    return a Telegram message with the top 5 cheapest combinations."""
+def search_route(route: dict):
+    """Search every depart/return permutation in the flex window.
+
+    Returns (message, records): the Telegram message with the top 5
+    cheapest combinations, and one history record per combination."""
     start, end = route["start"], route["end"]
     flex = route.get("flex_days", 0)
     depart_options = flex_dates(route["depart"], flex)
@@ -126,15 +130,30 @@ def search_route(route: dict) -> str:
         lines.append("No flights found in the window.")
     if failures:
         lines.append(f"\n_({failures} of the date searches failed)_")
-    return "\n".join(lines)
+
+    today = date.today().strftime(DATE_FMT)
+    records = [
+        {
+            "run_date": today,
+            "start": start,
+            "end": end,
+            "depart": d,
+            "return": r,
+            "total": finder._price_value(out) + finder._price_value(back),
+            "currency": currency_of(out) or currency_of(back),
+        }
+        for d, r, out, back in results
+    ]
+    return "\n".join(lines), records
 
 
 def main():
     config = json.loads(CONFIG_FILE.read_text())
 
     for route in config["routes"]:
+        records = []
         try:
-            message = search_route(route)
+            message, records = search_route(route)
         except Exception:
             log.exception("Route %s -> %s failed", route.get("start"), route.get("end"))
             message = (
@@ -143,6 +162,17 @@ def main():
             )
         notifier.send_telegram(message)
         log.info("Telegram message sent")
+
+        if records:
+            history.append(records)
+            log.info("History updated (%d rows)", len(records))
+            chart_path = str(Path(__file__).parent / "trend.png")
+            if chart.render(history.for_route(route["start"], route["end"]), chart_path):
+                notifier.send_photo(
+                    chart_path,
+                    caption=f"{route['start']} ⇄ {route['end']} price trend",
+                )
+                log.info("Trend chart sent")
 
 
 if __name__ == "__main__":
