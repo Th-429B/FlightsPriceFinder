@@ -87,8 +87,8 @@ def search_route(route: dict):
     cheapest combinations, and one history record per combination."""
     start, end = route["start"], route["end"]
     flex = route.get("flex_days", 0)
-    depart_options = flex_dates(route["depart"], flex)
-    return_options = flex_dates(route["return"], flex)
+    depart_options = flex_dates(route["depart"], route.get("depart_flex_days", flex))
+    return_options = flex_dates(route["return"], route.get("return_flex_days", flex))
 
     max_stops = route.get("max_stops", 0)
     log.info(

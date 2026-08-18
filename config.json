@@ -7,6 +7,15 @@
             "return": "2026-11-09",
             "flex_days": 2,
             "max_stops": 0
+        },
+        {
+            "start": "SIN",
+            "end": "KMG",
+            "depart": "2026-09-14",
+            "return": "2026-09-20",
+            "depart_flex_days": 1,
+            "return_flex_days": 0,
+            "max_stops": 0
         }
     ]
 }
