@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 import traceback
 from datetime import date, datetime, timedelta
@@ -149,8 +150,15 @@ def search_route(route: dict):
 
 def main():
     config = json.loads(CONFIG_FILE.read_text())
+    routes = config["routes"]
 
-    for route in config["routes"]:
+    route_filter = os.environ.get("ROUTE_FILTER", "").strip()
+    if route_filter:
+        routes = [r for r in routes if f"{r['start']}-{r['end']}" == route_filter]
+        if not routes:
+            log.warning("ROUTE_FILTER=%s matched no configured route; nothing to do", route_filter)
+
+    for route in routes:
         records = []
         try:
             message, records = search_route(route)
