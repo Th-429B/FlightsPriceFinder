@@ -49,7 +49,7 @@ def _search_round_trip(start, end, depart_date, return_date, max_stops):
         trip="round-trip",
         seat="economy",
         passengers=Passengers(adults=1),
-        fetch_mode="fallback",
+        fetch_mode="local",
     )
 
     priced = [f for f in result.flights if _price_value(f) != float("inf")]
@@ -68,7 +68,7 @@ def find_flights(start: str, end: str, date: str, max_stops: int = 0, top_n: int
         trip="one-way",
         seat="economy",
         passengers=Passengers(adults=1),
-        fetch_mode="fallback",
+        fetch_mode="local",
     )
 
     # The scrape often returns the same flight twice (once per page section).
