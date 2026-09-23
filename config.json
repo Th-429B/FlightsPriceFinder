@@ -3,8 +3,8 @@
         {
             "start": "SIN",
             "end": "NRT",
-            "depart": "2026-11-01",
-            "return": "2026-11-09",
+            "depart": "2026-03-20",
+            "return": "2026-03-28",
             "flex_days": 2,
             "max_stops": 0
         }
