@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 import traceback
 from datetime import date, datetime, timedelta
@@ -51,10 +52,13 @@ def leg_summary(flight) -> str:
     return f"{name} · {dep} → {arr}{ahead}"
 
 
+CURRENCY_SYMBOLS = {"S$": "SGD", "$": "USD", "US$": "USD", "¥": "JPY", "€": "EUR", "£": "GBP"}
+
+
 def currency_of(flight) -> str:
-    """'SGD 913' -> 'SGD'"""
-    head = flight.price.replace("\xa0", " ").split(" ")[0]
-    return head if not head[:1].isdigit() else ""
+    """'SGD 913' -> 'SGD', 'S$913' -> 'SGD', '$293' -> 'USD'"""
+    head = re.split(r"[\d\s]", flight.price.replace("\xa0", " ").strip(), maxsplit=1)[0]
+    return CURRENCY_SYMBOLS.get(head, head)
 
 
 def search_leg_dates(start: str, end: str, dates: list[str], max_stops: int):
