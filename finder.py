@@ -1,6 +1,12 @@
 import re
 
-from fast_flights import FlightData, Passengers, Result, get_flights
+from fast_flights import FlightData, Passengers, Result
+from fast_flights.core import get_flights_from_filter
+from fast_flights.filter import TFSData
+
+# fast_flights' get_flights() never forwards a currency, so Google quotes in
+# the runner's local currency (USD on GitHub Actions). Ask for SGD explicitly.
+CURRENCY = "SGD"
 
 
 def _price_value(flight) -> float:
@@ -61,14 +67,18 @@ def find_flights(start: str, end: str, date: str, max_stops: int = 0, top_n: int
 
     Returns (price_status, flights) where flights is the top_n cheapest results.
     """
-    result: Result = get_flights(
-        flight_data=[
-            FlightData(date=date, from_airport=start, to_airport=end, max_stops=max_stops)
-        ],
-        trip="one-way",
-        seat="economy",
-        passengers=Passengers(adults=1),
-        fetch_mode="local",
+    result: Result = get_flights_from_filter(
+        TFSData.from_interface(
+            flight_data=[
+                FlightData(date=date, from_airport=start, to_airport=end, max_stops=max_stops)
+            ],
+            trip="one-way",
+            passengers=Passengers(adults=1),
+            seat="economy",
+            max_stops=None,
+        ),
+        currency=CURRENCY,
+        mode="local",
     )
 
     # The scrape often returns the same flight twice (once per page section).

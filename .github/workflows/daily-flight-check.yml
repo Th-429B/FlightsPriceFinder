@@ -5,7 +5,12 @@ on:
     # ~08:23 Singapore time (00:23 UTC) every day; off-peak minute to
     # reduce GitHub's scheduling delay
     - cron: "23 0 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      commit_history:
+        description: Commit data/history.csv (leave off for test runs)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,6 +38,7 @@ jobs:
         run: python main.py
 
       - name: Commit price history
+        if: github.event_name == 'schedule' || inputs.commit_history
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
