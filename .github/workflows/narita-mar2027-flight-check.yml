@@ -1,0 +1,44 @@
+name: Narita Mar 2027 flight check
+
+on:
+  schedule:
+    # ~08:38 Singapore time (00:38 UTC) every day; offset from the other
+    # scheduled check so both don't race to commit history.csv at once
+    - cron: "38 0 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check-flights:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: playwright install --with-deps chromium
+
+      - name: Find flights and notify Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FPF_CONFIG_FILE: config.narita-mar2027.json
+          FPF_HISTORY_FILE: data/history-narita-mar2027.csv
+        run: python main.py
+
+      - name: Commit price history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/history-narita-mar2027.csv
+          git diff --cached --quiet || git commit -m "Update price history"
+          git pull --rebase origin master
+          git push

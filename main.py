@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import time
 import traceback
@@ -11,7 +12,7 @@ import finder
 import history
 import notifier
 
-CONFIG_FILE = Path(__file__).parent / "config.json"
+CONFIG_FILE = Path(__file__).parent / os.environ.get("FPF_CONFIG_FILE", "config.json")
 DATE_FMT = "%Y-%m-%d"
 
 logging.basicConfig(

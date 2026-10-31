@@ -1,0 +1,20 @@
+{
+    "routes": [
+        {
+            "start": "SIN",
+            "end": "NRT",
+            "depart": "2027-03-19",
+            "return": "2027-03-29",
+            "flex_days": 0,
+            "max_stops": 0
+        },
+        {
+            "start": "SIN",
+            "end": "NRT",
+            "depart": "2027-03-20",
+            "return": "2027-03-29",
+            "flex_days": 0,
+            "max_stops": 0
+        }
+    ]
+}
